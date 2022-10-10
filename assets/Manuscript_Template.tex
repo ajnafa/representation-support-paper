@@ -165,7 +165,7 @@ $if(listings)$
 $endif$
 
 $if(title)$
-\title{$title$$if(subtitle)$ $subtitle$$endif$ $if(thanks)$\thanks{$thanks$} $endif$}
+\title{$title$$if(subtitle)$ $subtitle$$endif$}
 $endif$
 
 % Formatting for Section Headers
@@ -225,10 +225,10 @@ $endfor$
 % Icons for ORC-ID and Github -- Requires rendering engine xelatex
 \usepackage{academicons}
 \newcommand{\orcid}[1]{\href{https://orcid.org/#1}{\textcolor[HTML]{A6CE39}{\aiOrcid}}}
-\newcommand{\openmaterials}[1]{\href{https://github.com/ajnafa/#1}{\textcolor[HTML]{000000}{\aiOpenMaterials}}} % Replace this with your github repo base url
+\newcommand{\openmaterials}[1]{\href{https://github.com/#1}{\textcolor[HTML]{000000}{\aiOpenMaterials}}} % Replace this with your github repo base url
 
 \usepackage{fontawesome}
-\newcommand{\gitrepo}[1]{\href{https://github.com/ajnafa/#1}{\textcolor[HTML]{000000}{\faGithub}}}
+\newcommand{\gitrepo}[1]{\href{https://github.com/#1}{\textcolor[HTML]{000000}{\faGithub}}}
 
 % Add an option for endnotes
 $if(endnotes)$
@@ -293,7 +293,7 @@ $endif$
 	\vspace*{2pt}
 	\begin{flushleft}
 		\fontsize{28pt}{28pt}\selectfont{%
-			\bfseries $title$$if(subtitle)$ $subtitle$$endif$
+			\bfseries $title$$if(subtitle)$ $subtitle$$endif$ $if(thanks)$\thanks{$thanks$} $endif$
 		}\fontsize{18pt}{18pt}\blfootnote{\hspace*{-\footnotemargin}% 
 			$if(firstfooter)$$firstfooter$$endif$
 		}\\%
@@ -319,20 +319,22 @@ $endif$
 			\fontsize{16pt}{16pt}\selectfont $third-author.affiliation$ & & \fontsize{16pt}{16pt}\selectfont $fourth-author.affiliation$\\
 		\end{tabular}
 	\end{center}
-	$else$
+	$elseif(singleauthor)$
 	\begin{flushleft}
 		\vspace*{6pt}
-		\fontsize{26pt}{26pt}\selectfont\textit{$if(anonymous)$$else$$author.name$$endif$}
-		\fontsize{18pt}{18pt}\selectfont\orcid{$author.orcid$} \openmaterials{$github$} \\
+		\fontsize{26pt}{26pt}\selectfont\textit{$if(anonymous)$$else$$author$$endif$}
+		\fontsize{18pt}{18pt}\selectfont\orcid{$orcid$} \gitrepo{$github$} \\
 		\vspace*{12pt}                                                                                  
-		\fontsize{18pt}{18pt}\selectfont \textbf{$if(anonymous)$$else$$author.affiliation$$endif$}
+		\fontsize{18pt}{18pt}\selectfont \textbf{$if(anonymous)$$else$$affiliation$$endif$}
 	\end{flushleft}
 	$endif$
+	
 	$if(wordcount)$
 	\begin{center}
 		\textit{Word Count:} $wordcount$
 	\end{center}
 	$endif$
+	
 	$if(abstract)$
 	\begin{abstract}
 		\noindent\normalsize $abstract$

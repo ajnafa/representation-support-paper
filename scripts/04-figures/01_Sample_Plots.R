@@ -9,10 +9,7 @@ pacman::p_load(
   "rnaturalearthdata",
   "rgeos",
   "tidyverse",
-  "data.table",
-  "dtplyr",
-  "countrycode",
-  "patchwork",
+  "arrow",
   install = FALSE
 )
 
@@ -99,6 +96,14 @@ cases_full_world <- world_sf %>%
   # Drop antartica
   filter(name_long != "Antarctica")
 
+# Write the IVS Model Data to a File
+write_rds(
+  x = cases_full_world, 
+  file = "output/project-data/Sample-Map-Data.rds",
+  compress = "gz",
+  compression = 9L
+)
+
 #------------------------------------------------------------------------------#
 #------------------Figure 1: Case Selection for Main Analysis-------------------
 #------------------------------------------------------------------------------#
@@ -119,15 +124,32 @@ full_map_plot <- ggplot() +
     na.translate = FALSE
   ) +
   # Add labels to the plot
-  labs(fill = "Survey Project") +
+  labs(
+    fill = "Survey Project",
+    caption = str_wrap(
+      "Notes: Sample includes countries classified as electoral democracies at 
+      some point in thier history and that are covered by at least two surveys 
+      between 1995 and 2020. Select countries were excluded despite otherwise 
+      meeting the minimum criteria for inclusion due to evidence of severe 
+      translation error in at least one of the items used to operationalize 
+      the dependent variable or time invariance in one of the main survey-level 
+      predictors of interest. See the online appendix for a more detailed 
+      discussion.", 
+      width = 140
+      )
+    )  +
   # Apply Custom Map Theme Settings
   map_theme(
+    base_family = "serif",
     caption.hjust = 0, 
     caption.vjust = -1, 
     legend.position = "bottom", 
+    legend_text_size = 25,
+    caption_size = 20,
     show.axis = F,
-    plot.margin = margin(0, 0, 0.3, 0, "mm")
-    )
+    plot.margin = margin(0, 0, 2, 0, "mm"),
+    plot.caption.position = "plot"
+  )
 
 # Preview the quota plot
 print(full_map_plot)
@@ -141,7 +163,7 @@ map(
     device = .x,
     path = "output/figures",
     width = 16,
-    height = 7,
+    height = 9,
     units = "in",
     dpi = "retina"
   ))
