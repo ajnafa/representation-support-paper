@@ -7,7 +7,6 @@ pacman::p_load(
   "tidyverse",
   "arrow",
   "brms",
-  "bayestestR",
   "tidybayes",
   "bayesplot",
   "patchwork",
