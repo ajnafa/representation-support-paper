@@ -7,9 +7,9 @@
 #'
 #' @aliases model_averaged_ame
 #' 
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' @importFrom purrr map_dbl map2
-#' @importFrom dplyr slice_sample
+#' @importFrom dplyr slice_sample mutate group_by summarize ungroup across
 #'
 #' @param x A list object returned by `brmsmargins::brmsmargins`. The object
 #' must contain at a minimum two matrices, one called the `Posterior` and the 
@@ -21,6 +21,10 @@
 #' 
 #' @param seed An integer value to use for the random number seed to ensure the 
 #' index values for the random draws are locally reproducible.
+#' 
+#' @param summary An option logical argument indicating whether to return the
+#' full draws for each row in `weights` or return the average for each 
+#' model-draw pair. Defaults to `FALSE`
 #
 #' @param ... Additional arguments for future development, currently unused.
 #'
@@ -29,7 +33,7 @@
 #' 
 #' @export model_averaged_ame
 #' 
-model_averaged_ame <- function(x, weights, seed, ...) {
+model_averaged_ame <- function(x, weights, seed = NULL, summary = FALSE, ...) {
   
   ## Check that weights is a matrix and x is a list
   stopifnot(exprs = {
@@ -56,21 +60,42 @@ model_averaged_ame <- function(x, weights, seed, ...) {
     round_largest_remainder
   )
   
-  ## Build the tibble for each model
-  marginal_draws_df <- purrr::map2(
-    .x = x,
-    .y = names(x),
-    .f = ~ tibble::tibble(
-      .pred_low = .x$Posterior[, 1],
-      .pred_hi = .x$Posterior[, 2],
-      .ame = .x$Contrasts[, 1],
-      .draw = 1:nrow(.x$Posterior),
-      .model = .y
+  ## For models with only main effects
+  if (dim(x[[1]]$Contrasts)[2] == 1) {
+    
+    ## Build the tibble for each model
+    marginal_draws_df <- purrr::map2(
+      .x = x,
+      .y = names(x),
+      .f = ~ tibble::tibble(
+        .ame = .x$Contrasts[, 1],
+        .draw = 1:nrow(.x$Posterior),
+        .model = .y
+      )
     )
-  )
+    
+  }
   
-  ## Update the rng seed to ensure reproducibility
-  set.seed(seed)
+  ## For models with interaction effects
+  else if (dim(x[[1]]$Contrasts)[2] >= 2) {
+    
+    ## Build the tibble for each model
+    marginal_draws_df <- purrr::map2(
+      .x = x,
+      .y = names(x),
+      .f = ~ tibble::as_tibble(.x$Contrasts) |>
+        dplyr::mutate(
+          .draw = 1:nrow(.x$Posterior),
+          .model = .y,
+          .before = 1
+        )
+    )
+  }
+  
+  # If seed is not null, update the rng seed
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
   
   # Initialize a list to store the result in
   out <- list()
@@ -94,8 +119,22 @@ model_averaged_ame <- function(x, weights, seed, ...) {
     out[[j]] <- do.call(rbind, out[[j]])
   }
   
-  ## Append the models into a data frame
-  out <- dplyr::bind_rows(out, .id = ".postprob")
+  # Append everything into a single data frame
+  out <- bind_rows(out, .id = "postprob_id")
+  
+  # If summary is true, average over the draws
+  if (isTRUE(summary)) {
+    
+    # Get the number of columns
+    nvars <- (ncol(out) - 2)
+    
+    # Aggregate by model-draw pairs
+    out <- out |>
+      group_by(.draw, .model) |>
+      summarize(across(2:nvars, ~ mean(.x))) |>
+      ungroup()
+    
+  }
   
   ## Return just the final object
   return(out)

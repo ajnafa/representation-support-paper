@@ -6,6 +6,7 @@
 
 # Stuff in the assets folder
 assets/references.bib.sav
+assets/references.bib.bak
 
 # Don't commit original data files due to size and licensing
 data
@@ -14,3 +15,5 @@ data
 output/fits
 output/predictions
 
+manuscript/latex
+manuscript/ms-word

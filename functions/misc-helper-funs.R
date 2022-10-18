@@ -25,7 +25,7 @@ required_pkgs <- function(...) {
 }
 
 ## Function from the brms package to ensure weighted draws sum to n
-.round_largest_remainder <- function (x) {
+round_largest_remainder <- function (x) {
   x <- as.numeric(x)
   total <- round(sum(x))
   out <- floor(x)

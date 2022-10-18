@@ -7,9 +7,9 @@
 #'
 #' @aliases stacked_ame
 #' 
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' @importFrom purrr map_dbl map2
-#' @importFrom dplyr slice_sample
+#' @importFrom dplyr slice_sample mutate
 #'
 #' @param x A list object returned by `brmsmargins::brmsmargins`. The object
 #' must contain at a minimum two matrices, one called the `Posterior` and the 
@@ -53,18 +53,37 @@ stacked_ame <- function(x, weights, seed, ...) {
   weighted_draws <- round_largest_remainder(weights * ndraws[1])
   names(weighted_draws) <- names(weights)
   
-  ## Build the tibble for each model
-  marginal_draws_df <- purrr::map2(
-    .x = x,
-    .y = names(x),
-    .f = ~ tibble::tibble(
-      .pred_low = .x$Posterior[, 1],
-      .pred_hi = .x$Posterior[, 2],
-      .ame = .x$Contrasts[, 1],
-      .draw = 1:nrow(.x$Posterior),
-      .model = .y
+  ## For models with only main effects
+  if (dim(x[[1]]$Contrasts)[2] == 1) {
+    
+    ## Build the tibble for each model
+    marginal_draws_df <- purrr::map2(
+      .x = x,
+      .y = names(x),
+      .f = ~ tibble::tibble(
+        .ame = .x$Contrasts[, 1],
+        .draw = 1:nrow(.x$Posterior),
+        .model = .y
+      )
     )
-  )
+    
+  }
+  
+  ## For models with interactions effects
+  else if (dim(x[[1]]$Contrasts)[2] >= 2) {
+    
+    ## Build the tibble for each model
+    marginal_draws_df <- purrr::map2(
+      .x = x,
+      .y = names(x),
+      .f = ~ tibble::as_tibble(.x$Contrasts) |>
+        dplyr::mutate(
+          .draw = 1:nrow(.x$Posterior),
+          .model = .y,
+          .before = 1
+        )
+    )
+  }
   
   ## Update the rng seed to ensure reproducibility
   set.seed(seed)
@@ -82,7 +101,7 @@ stacked_ame <- function(x, weights, seed, ...) {
   }
   
   ## Append the draws into a data frame
-  out <- dplyr::bind_rows(out, .id = ".model")
+  out <- dplyr::bind_rows(out, .id = ".loo_id")
   
   ## Add Attributes to the matrix
   attr(out, which = "ndraws") <- weighted_draws

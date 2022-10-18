@@ -1,7 +1,7 @@
 # Set Project Options
 options(
   digits = 6, # Significant figures output
-  mc.cores = parallel::detectCores(), # Multicore processing
+  mc.cores = 12L, # Multicore processing
   scipen = 999, # Disable scientific notation
   repos = getOption("repos")["CRAN"],
   brms.backend = "cmdstanr",
@@ -22,6 +22,12 @@ contemp_models_dir <- "output/fits/contemporary/"
 
 # Base Directory for the socialization model objects
 soc_models_dir <- "output/fits/socialization/"
+
+## Base Directory for the socialization predictions
+main_preds_dir <- "output/predictions/main-models/"
+
+## Base Directory for the socialization (alternative prior) predictions
+alt_preds_dir <- "output/predictions/alternative-prior/"
 
 # Base Directory for the stan files
 stan_dir <- "output/stan-code/"
