@@ -126,12 +126,12 @@ model_averaged_ame <- function(x, weights, seed = NULL, summary = FALSE, ...) {
   if (isTRUE(summary)) {
     
     # Get the number of columns
-    nvars <- (ncol(out) - 2)
+    nvars <- 2:(ncol(out) - 2)
     
     # Aggregate by model-draw pairs
     out <- out |>
       group_by(.draw, .model) |>
-      summarize(across(2:nvars, ~ mean(.x))) |>
+      summarize(across(all_of(nvars), ~ mean(.x))) |>
       ungroup()
     
   }

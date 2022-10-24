@@ -13,7 +13,9 @@
 #'
 #' @examples
 #' 
-thin_samples <- function(model, thin) {
+#' 
+#' 
+thin_samples <- function(model, thin, ...) {
   
   ## Check that mode lis an object of class brmsfit
   stopifnot("model argument must be an object of class brmsfit" = brms::is.brmsfit(model))
@@ -28,7 +30,7 @@ thin_samples <- function(model, thin) {
   draws_index <- seq(from = 1, to = iters, by = thin)
   
   ## Extract the posterior draws
-  posterior <- posterior::as_draws_df(model) |>
+  posterior <- posterior::as_draws_df(model, ...) |>
     dplyr::filter(.iteration %in% draws_index)
   
   ## Return the thinned samples
