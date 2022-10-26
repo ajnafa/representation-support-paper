@@ -10,6 +10,8 @@ pacman::p_load(
   "brms",
   "patchwork",
   "brmsmargins",
+  "ggdist",
+  "bayestestR",
   install = FALSE ## Set this to TRUE to install missing packages
 )
 
@@ -38,7 +40,7 @@ contemp_models_params <- map(
 # models containing the predictor when calculating the model averaged contrasts
 main_eff_pos <- map_dbl(
   contemp_models_params, 
-  ~ str_which(.x, "b_female_wi:pctfemleg.*|pctfemleg") %>% 
+  ~ str_which(.x, "^pctfemleg") %>% 
     length()
 )
 
@@ -286,7 +288,8 @@ loo_weights_inter <- stacking_weights(
 contemp_inter_bmame <- model_averaged_ame(
   ame_inter_effs_contemp, 
   weights = post_probs_femleg_inter,
-  summary = TRUE
+  summary = TRUE,
+  seed = 12345
 )
 
 # Write the combined data to a parquet file
