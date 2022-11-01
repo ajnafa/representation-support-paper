@@ -1,6 +1,6 @@
-#------------Bayesian Model Averaged Marginal Effects: Contemporary-------------
-#-Author: A. Jordan Nafa------------------------------Created: October 5, 2022-#
-#-R Version: 4.2.1-----------------------------Last Modified: October 16, 2022-#
+#--Bayesian Model Averaged Marginal Effects: Contemporary (Alternative Priors)--
+#-Author: A. Jordan Nafa-----------------------------Created: October 16, 2022-#
+#-R Version: 4.2.1-----------------------------Last Modified: October 18, 2022-#
 
 ## Load the necessary libraries
 pacman::p_load(
@@ -10,8 +10,6 @@ pacman::p_load(
   "brms",
   "patchwork",
   "brmsmargins",
-  "ggdist",
-  "bayestestR",
   install = FALSE ## Set this to TRUE to install missing packages
 )
 
@@ -20,10 +18,10 @@ pacman::p_load(
 #------------------------------------------------------------------------------#
 
 # Load the contemporary models for the main analysis
-contemp_models_main <- map(
+contemp_models_alt <- map(
   .x = list.files(
     contemp_models_dir, 
-    pattern = ".*_Final.rds",
+    pattern = ".*_AltPrior.rds",
     full.names = TRUE
   ),
   ~ read_rds(.x)
@@ -31,16 +29,16 @@ contemp_models_main <- map(
 
 # Extract the parameters of interest in each model
 contemp_models_params <- map(
-  contemp_models_main, 
+  contemp_models_alt, 
   ~ variables(.x) %>% 
     str_subset(., "^b_|^sd_|^cor_")
 )
 
 # Since some of the models have interactions, we only want to average over 
 # models containing the predictor when calculating the model averaged contrasts
-main_eff_pos <- map_dbl(
+alt_eff_pos <- map_dbl(
   contemp_models_params, 
-  ~ str_which(.x, "^pctfemleg") %>% 
+  ~ str_which(.x, "b_female_wi:pctfemleg.*|pctfemleg") %>% 
     length()
 )
 
@@ -49,18 +47,18 @@ main_eff_pos <- map_dbl(
 #------------------------------------------------------------------------------#
 
 ## Subset of the models with only the main effects calculations
-contemp_femleg_mods <- contemp_models_main[which(0 < main_eff_pos)]
+contemp_femleg_mods_alt <- contemp_models_alt[which(0 < alt_eff_pos)]
 
 ## Initialize a list to store the results in
-ame_main_effs_contemp <- list()
+ame_main_effs_contemp_alt <- list()
 
 ## Set h to use for approximating the first derivative
 h <- .001
 
 ## Calculate the AME for each model, this takes about 15 hours
-for (i in seq_along(contemp_femleg_mods)) {
-  ame_main_effs_contemp[[i]] <- brmsmargins(
-    object = contemp_femleg_mods[[i]],
+for (i in seq_along(contemp_femleg_mods_alt)) {
+  ame_main_effs_contemp_alt[[i]] <- brmsmargins(
+    object = contemp_femleg_mods_alt[[i]],
     add = data.table::data.table(pctfemleg_wi = c(0, h)),
     contrasts = matrix(c(-1/h, 1/h), nrow = 2),
     summarize = FALSE,
@@ -73,15 +71,15 @@ for (i in seq_along(contemp_femleg_mods)) {
 }
 
 ## Apply names to the list of marginal effects for each model
-names(ame_main_effs_contemp) <- str_c("MC", (which(0 < main_eff_pos) - 1))
+names(ame_main_effs_contemp_alt) <- str_c("MC", (which(0 < alt_eff_pos) - 1))
 
 # Write the combined data to a parquet file
 write_rds(
-  ame_main_effs_contemp, 
+  ame_main_effs_contemp_alt, 
   file = str_c(
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/PopAvg_AME_ContempMain.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )
@@ -91,10 +89,10 @@ write_rds(
 #------------------------------------------------------------------------------#
 
 ## Subset of the models with the interaction effects
-contemp_gender_femleg_mods <- contemp_models_main[which(3 < main_eff_pos)]
+contemp_gender_femleg_mods_alt <- contemp_models_alt[which(3 < alt_eff_pos)]
 
 ## Take the minimum and maximum within countries 
-x_data <- contemp_gender_femleg_mods[[1]]$data %>% 
+x_data <- contemp_gender_femleg_mods_alt[[1]]$data %>% 
   # Group the data by country
   group_by(country_jj) %>% 
   # Take the minimum and maximum of X within countries
@@ -135,12 +133,12 @@ colnames(contr_mat) <- c(
 )
 
 ## Initialize a list to store the results in
-ame_inter_effs_contemp <- list()
+ame_inter_effs_contemp_alt <- list()
 
 ## Calculate the AME for each model, this takes about seven hours
-for (i in seq_along(contemp_gender_femleg_mods)) {
-  ame_inter_effs_contemp[[i]] <- brmsmargins(
-    object = contemp_gender_femleg_mods[[i]],
+for (i in seq_along(contemp_gender_femleg_mods_alt)) {
+  ame_inter_effs_contemp_alt[[i]] <- brmsmargins(
+    object = contemp_gender_femleg_mods_alt[[i]],
     at = use_at,
     wat = use_wat,
     contrasts = contr_mat,
@@ -154,15 +152,15 @@ for (i in seq_along(contemp_gender_femleg_mods)) {
 }
 
 ## Apply names to the list of marginal effects for each model
-names(ame_inter_effs_contemp) <- str_c("MC", (which(3 < main_eff_pos) - 1))
+names(ame_inter_effs_contemp_alt) <- str_c("MC", (which(3 < alt_eff_pos) - 1))
 
 # Write the combined data to a parquet file
 write_rds(
-  ame_inter_effs_contemp, 
+  ame_inter_effs_contemp_alt, 
   file = str_c( 
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/PopAvg_AME_ContempInter.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )
@@ -172,69 +170,70 @@ write_rds(
 #------------------------------------------------------------------------------#
 
 # Read in the AMEs from the disk
-ame_main_effs_contemp <- read_rds(str_c(
-  main_preds_dir, 
+ame_main_effs_contemp_alt <- read_rds(str_c(
+  alt_preds_dir, 
   "contemporary/PopAvg_AME_ContempMain.rds"
-  ))
+))
 
 ## Get the code for the models to pass to bridgesampling::post_prob
-get_models_marglik("contemp_models_main", which(0 < main_eff_pos))
+get_models_marglik("contemp_models_alt", which(0 < alt_eff_pos))
 
 # Generate posterior probability weights based on 100 bridge sampling reps
-post_probs_femleg_main <- bridgesampling::post_prob(
-  contemp_models_main[[3]]$criteria$marglik, 
-  contemp_models_main[[4]]$criteria$marglik, 
-  contemp_models_main[[5]]$criteria$marglik, 
-  contemp_models_main[[6]]$criteria$marglik, 
-  contemp_models_main[[7]]$criteria$marglik, 
-  contemp_models_main[[9]]$criteria$marglik, 
-  contemp_models_main[[10]]$criteria$marglik, 
-  contemp_models_main[[11]]$criteria$marglik,
+post_probs_femleg_alt <- bridgesampling::post_prob(
+  contemp_models_alt[[3]]$criteria$marglik, 
+  contemp_models_alt[[4]]$criteria$marglik, 
+  contemp_models_alt[[5]]$criteria$marglik, 
+  contemp_models_alt[[6]]$criteria$marglik, 
+  contemp_models_alt[[7]]$criteria$marglik, 
+  contemp_models_alt[[9]]$criteria$marglik, 
+  contemp_models_alt[[10]]$criteria$marglik, 
+  contemp_models_alt[[11]]$criteria$marglik,
   prior_prob = rep(1/8, length.out = 8),
-  model_names = str_c("MC", (which(0 < main_eff_pos) - 1))
+  model_names = str_c("MC", (which(0 < alt_eff_pos) - 1))
 )
 
 ## Generate the stacking weights with 10k Bayesian-Bootstrap replications
-loo_weights_main <- stacking_weights(
-  contemp_femleg_mods,
-  model_names = str_c("MC", (which(0 < main_eff_pos) - 1)),
+loo_weights_alt <- stacking_weights(
+  contemp_femleg_mods_alt,
+  model_names = str_c("MC", (which(0 < alt_eff_pos) - 1)),
   bb_draws = TRUE,
   n = 10e3,
   seed = 12345
 )
 
 ## Calculate the model averaged marginal effect for the main effect
-contemp_main_bmame <- model_averaged_ame(
-  ame_main_effs_contemp, 
-  weights = post_probs_femleg_main,
-  summary = TRUE
+contemp_main_alt_bmame <- model_averaged_ame(
+  ame_main_effs_contemp_alt, 
+  weights = post_probs_femleg_alt,
+  summary = TRUE,
+  seed = 12345
 )
 
 # Write the combined data to a parquet file
 write_rds(
-  contemp_main_bmame, 
+  contemp_main_alt_bmame, 
   file = str_c(
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/BMAME_PopAvg_AME_Contemp_Main.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )
 
 ## Calculate the stacked marginal effect for the main effect
-contemp_main_stacked <- stacked_ame(
-  ame_main_effs_contemp, 
-  weights = loo_weights_main,
+contemp_main_alt_stacked <- stacked_ame(
+  ame_main_effs_contemp_alt, 
+  weights = loo_weights_alt,
   seed = 12345
-  )
+)
 
 # Write the combined data to a parquet file
 write_rds(
-  contemp_main_stacked, 
+  contemp_main_alt_stacked, 
   file = str_c(
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/Stacked_PopAvg_AME_Contemp_Main.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )
@@ -244,37 +243,37 @@ write_rds(
 #------------------------------------------------------------------------------#
 
 # Read in the AMEs from the disk
-ame_inter_effs_contemp <- read_rds(str_c(
-  main_preds_dir, 
+ame_inter_effs_contemp_alt <- read_rds(str_c(
+  alt_preds_dir, 
   "contemporary/PopAvg_AME_ContempInter.rds"
 ))
 
 ## Get the code for the models to pass to bridgesampling::post_prob
-get_models_marglik("contemp_models_main", which(3 < main_eff_pos))
+get_models_marglik("contemp_models_alt", which(3 < alt_eff_pos))
 
 # Generate posterior probability weights based on 100 bridge sampling reps
 post_probs_femleg_inter <- bridgesampling::post_prob(
-  contemp_models_main[[3]]$criteria$marglik, 
-  contemp_models_main[[6]]$criteria$marglik, 
-  contemp_models_main[[7]]$criteria$marglik, 
-  contemp_models_main[[10]]$criteria$marglik, 
-  contemp_models_main[[11]]$criteria$marglik,
+  contemp_models_alt[[3]]$criteria$marglik, 
+  contemp_models_alt[[6]]$criteria$marglik, 
+  contemp_models_alt[[7]]$criteria$marglik, 
+  contemp_models_alt[[10]]$criteria$marglik, 
+  contemp_models_alt[[11]]$criteria$marglik,
   prior_prob = rep(1/5, length.out = 5),
-  model_names = str_c("MC", (which(3 < main_eff_pos) - 1))
+  model_names = str_c("MC", (which(3 < alt_eff_pos) - 1))
 )
 
 ## Generate the stacking weights with 10k Bayesian-Bootstrap replications
 loo_weights_inter <- stacking_weights(
-  contemp_gender_femleg_mods,
-  model_names = str_c("MC", (which(3 < main_eff_pos) - 1)),
+  contemp_gender_femleg_mods_alt,
+  model_names = str_c("MC", (which(3 < alt_eff_pos) - 1)),
   bb_draws = TRUE,
   n = 10e3,
   seed = 12345
 )
 
 ## Calculate the model averaged marginal effect for the main effect
-contemp_inter_bmame <- model_averaged_ame(
-  ame_inter_effs_contemp, 
+contemp_inter_alt_bmame <- model_averaged_ame(
+  ame_inter_effs_contemp_alt, 
   weights = post_probs_femleg_inter,
   summary = TRUE,
   seed = 12345
@@ -282,29 +281,29 @@ contemp_inter_bmame <- model_averaged_ame(
 
 # Write the combined data to a parquet file
 write_rds(
-  contemp_inter_bmame, 
+  contemp_inter_alt_bmame, 
   file = str_c(
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/BMAME_PopAvg_AME_Contemp_Inter.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )
 
 ## Calculate the stacked marginal effect for the main effect
-contemp_inter_stacked <- stacked_ame(
-  ame_inter_effs_contemp, 
+contemp_inter_alt_stacked <- stacked_ame(
+  ame_inter_effs_contemp_alt, 
   weights = loo_weights_inter,
   seed = 12345
 )
 
 # Write the combined data to a parquet file
 write_rds(
-  contemp_inter_stacked, 
+  contemp_inter_alt_stacked, 
   file = str_c(
-    main_preds_dir, 
+    alt_preds_dir, 
     "contemporary/Stacked_PopAvg_AME_Contemp_Inter.rds"
-    ),
+  ),
   compress = "gz", 
   compression = 9L
 )

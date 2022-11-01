@@ -53,6 +53,7 @@ soc_model_df <- within(soc_model_df, {
   contrasts(age_cat) <- contr.orthonorm(levels(age_cat))
   contrasts(educ) <- contr.orthonorm(levels(educ))
 })
+  
 
 #------------------------------------------------------------------------------#
 #------------------------Socialization Model Formulas---------------------------

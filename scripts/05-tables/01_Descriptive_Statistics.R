@@ -1,6 +1,6 @@
 #-----------------------Tables: Descriptive Statistics--------------------------
 #-Author: A. Jordan Nafa--------------------------------Created: March 1, 2022-#
-#-R Version: 4.1.2--------------------------------------Revised: June 22, 2022-#
+#-R Version: 4.2.1-----------------------------------Revised: November 1, 2022-#
 
 # Load the necessary libraries----
 pacman::p_load(
@@ -60,7 +60,30 @@ descriptive_stats <- datasummary(
       "GDP Per Capita",
       "Liberal Democracy"
     )
-  ))
+  )) %>% 
+  # Add number of groups for the random effect levels and total
+  add_row(
+    N = c(
+      as.character(length(unique(model_df$country_jj))),
+      as.character(length(unique(model_df$survey_tt))),
+      as.character(length(unique(model_df$cohort_5y_kk))),
+      as.character(nrow(model_df_sub)),
+      as.character(nrow(model_df_sub)),
+      as.character(nrow(model_df_sub))
+    ),
+    rownames = c(
+      "Countries J",
+      "Surveys T",
+      "Birth Cohorts L",
+      "Sample by Country",
+      "Sample by Survey",
+      "Sample by Cohorts"
+    ),
+    Min = c(NA_character_, "2", "11", "1409", "197", "27"),
+    Max = c(NA_character_, "7", "21", "13719", "3997", "34058"),
+    Median = c(NA_character_, "4", "19", "5337", "1236", "18041"),
+    Mean = c(NA_character_, NA_character_, NA_character_, "5626", "1396", "16879")
+    )
 
 ## Create the html table----
 descriptive_stats_html <- descriptive_stats %>%
@@ -73,53 +96,71 @@ descriptive_stats_html <- descriptive_stats %>%
     row.names = T,
     col.names = c("Mean", "Median", "SD", "Min", "Max", "N"),
     align = "lccccc",
-    caption = "Table 1A. Descriptive Statistics for the Main Analysis",
+    caption = "Table A1. Descriptive Statistics for the Main Analysis",
     booktabs = T,
     linesep = ""
   ) %>%
   # Apply HTML formatting
-  kable_classic(html_font = "serif") %>% 
+  kable_classic(html_font = "serif") %>%
+  # Group Respondent level variable rows
+  group_rows(index = c(
+    "Respondent-Level Variables" = 9,
+    "Socialization Variables" = 2,
+    "Country-Level Variables" = 3,
+    "Random Effects Levels" = 3,
+    "Observations by Level"  = 3
+  )) %>%
   # Group Respondent level variable rows
   group_rows(
-    group_label = "Respondent-Level Variables",
-    start_row = 1,
-    end_row = 9
-  ) %>%
-  # Group Respondent sex variable rows
-  group_rows(
-    group_label = "Sex",
+    index = c(
+      " " = 1, 
+      "Sex" = 2, 
+      "Age in Categories" = 3, 
+      "Educational Attainment" = 4
+    ),
     label_row_css = "padding-left: 1em;",
-    start_row = 2,
-    end_row = 4,
     indent = FALSE
+  ) %>% 
+  #
+  row_spec(20, extra_css = "border-bottom: 1px solid;") %>% 
+  #
+  add_footnote(
+    notation = "none",
+    label = "Notes: Descriptive statistics are shown for the combined sample of countries that met the minimum criteria for inclusion discussed in the main text. For categorical predictors, the mean represents an unweighted proportion of responses for each category."
+  )
+  
+## Create the latex table----
+descriptive_stats_tex <- descriptive_stats %>%
+  # Reorder the variables
+  select(rownames, Mean:N) %>%
+  # Set the vartiable column as rownames
+  column_to_rownames(var = "rownames") %>%
+  # Generate a kable
+  kbl(
+    row.names = T,
+    col.names = c("Mean", "Median", "SD", "Min", "Max", "N"),
+    align = "lccccc",
+    caption = "Table A1. Descriptive Statistics for the Main Analysis",
+    booktabs = T,
+    linesep = ""
   ) %>%
   # Group Respondent level variable rows
+  group_rows(index = c(
+    "Respondent-Level Variables" = 9,
+    "Socialization Variables" = 2,
+    "Country-Level Variables" = 3,
+    "Random Effects Levels" = 3,
+    "Observations Per Country"  = 1
+  )) %>%
+  # Group Respondent level variable rows
   group_rows(
-    group_label = "Age",
+    index = c(
+      " " = 1, 
+      "Sex" = 2, 
+      "Age in Categories" = 3, 
+      "Educational Attainment" = 4
+    ),
     label_row_css = "padding-left: 1em;",
-    start_row = 4,
-    end_row = 7,
     indent = FALSE
-  ) %>%
-  # Group Respondent level variable rows
-  group_rows(
-    group_label = "Educational Attainment",
-    label_row_css = "padding-left: 1em;",
-    start_row = 7,
-    end_row = 9,
-    indent = FALSE
-  ) %>%
-  # Group Respondent level variable rows
-  group_rows(
-    group_label = "Socialization Variables",
-    label_row_css = "padding-left: 1em;",
-    start_row = 10,
-    end_row = 11
-  ) %>%
-  # Group country level variable rows
-  group_rows(
-    group_label = "Country-Level Variables",
-    start_row = 12,
-    end_row = 14
   )
 

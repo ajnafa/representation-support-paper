@@ -84,7 +84,7 @@ write_rds(
 #-------------AME for Socialization % Female Legislators by Gender--------------
 #------------------------------------------------------------------------------#
 
-# Subset of the models with the main effects
+# Subset of the models with the interaction effects
 soc_femleg_gender_mods_alt <- soc_models_altprior[which(3 < alt_eff_pos)]
 
 # Take the minimum and maximum within countries 
@@ -131,7 +131,7 @@ colnames(contr_mat) <- c(
 # Initialize a list to store the results in
 ame_inter_effs_soc_alt <- list()
 
-# Calculate the AME for each model, this takes about two hours
+# Calculate the AME for each model, this takes a few hours
 for (i in seq_along(soc_femleg_gender_mods_alt)) {
   ame_inter_effs_soc_alt[[i]] <- brmsmargins(
     object = soc_femleg_gender_mods_alt[[i]],

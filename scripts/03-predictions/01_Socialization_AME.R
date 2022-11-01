@@ -175,13 +175,7 @@ ame_main_effs_soc <- read_rds(str_c(
 )))
 
 ## Get the code for the models to pass to bridgesampling::post_prob
-marglik_obs <- str_c(
-  "soc_models_main[[", 
-  which(0 < main_eff_pos), 
-  "]]$criteria$marglik"
-) %>% 
-  ## Use glue here to construct the object calls
-  glue::glue_collapse(., sep = ", \n")
+get_models_marglik("soc_models_main", which(0 < main_eff_pos))
 
 # Generate posterior probability weights based on 100 bridge sampling reps
 post_probs_soc_femleg_main <- bridgesampling::post_prob(
@@ -251,13 +245,7 @@ ame_inter_effs_soc <- read_rds(str_c(
 ))
 
 ## Get the code for the models to pass to bridgesampling::post_prob
-marglik_obs <- str_c(
-  "soc_models_main[[", 
-  which(3 < main_eff_pos), 
-  "]]$criteria$marglik"
-) %>% 
-  ## Use glue here to construct the object calls
-  glue::glue_collapse(., sep = ", \n")
+get_models_marglik("soc_models_main", which(3 < main_eff_pos))
 
 # Generate posterior probability weights based on 100 bridge sampling reps
 post_probs_soc_femleg_inter <- bridgesampling::post_prob(
