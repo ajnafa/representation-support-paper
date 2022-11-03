@@ -151,6 +151,8 @@ glance.brmsfit <- function(x,
       bayes.R2.lower = qi(x$criteria[[criteria_pos]])[,1],
       bayes.R2.upper = qi(x$criteria[[criteria_pos]])[,2],
     )
+  } else {
+    bayes.R2 <- NA_real_
   }
   
   R2 <- do.call(cbind, list(conditional_R2, marginal_R2, bayes.R2))

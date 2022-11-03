@@ -71,7 +71,7 @@ tidy.brmsfit <- function(x,
   # "statistical significance" for some absurd reason.
   if (isTRUE(signif)) {
     ## Use rope.percentage for this, though could also use bayestestR::pd_to_p
-    out$p.value <- ifelse(out$effect == "conditional", 1 - out$pd, 1)
+    out$p.value <- ifelse(out$effect %in% c("conditional", "fixed"), 1 - out$pd, 1)
   }
 
   # Return the data frame object

@@ -2,8 +2,8 @@
 #' 
 #' This function facilitates the estimation of model averaged marginal effects
 #' for Bayesian models and is designed to account for uncertainty in the 
-#' process of model selection when estimating average effects and adjusted 
-#' probabilities.
+#' process of model specification when estimating average marginal effects and 
+#' probability contrasts.
 #'
 #' @aliases model_averaged_ame
 #' 

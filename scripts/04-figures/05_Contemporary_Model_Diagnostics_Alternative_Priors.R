@@ -7,7 +7,6 @@ pacman::p_load(
   "tidyverse",
   "arrow",
   "brms",
-  "bayestestR",
   "tidybayes",
   "bayesplot",
   "patchwork",
@@ -15,7 +14,11 @@ pacman::p_load(
   install = FALSE
 )
 
-# Load the contemporary models for the main analysis
+#------------------------------------------------------------------------------#
+#---------------------------Load Contemporary Models----------------------------
+#------------------------------------------------------------------------------#
+
+# Load the contemporary models for the alternative prior analysis
 contemp_models_alt <- map(
   .x = list.files(
     contemp_models_dir, 
@@ -25,12 +28,47 @@ contemp_models_alt <- map(
   ~ read_rds(.x)
 )
 
+## Apply names to the list of models
+names(contemp_models_alt) <- str_c("MC", 0:10)
+
+# Load the socialization models for the main analysis
+contemp_models_alt_thinned <- map(
+  .x = contemp_models_alt,
+  ~ thin_samples(.x, 
+                 thin = 10,
+                 variable = "^b_|^sd_|^cor_|r_(c|s)", 
+                 regex = TRUE)
+)
+
+# Calculate full MCMC diagnostics
+contemp_models_alt_summ <- map(
+  .x = contemp_models_alt_thinned,
+  ~ mcmc_diagnostics_summary(.x, .cores = 8)
+)
+
+# Append everything into a single data frame
+contemp_models_alt_summ_df <- bind_rows(
+  contemp_models_alt_summ, 
+  .id = ".model"
+) %>% 
+  # Sort on the string vectors
+  arrange(variable, .model)
+
+# Write the full thinned posteriors to a parquet file
+write_parquet(
+  contemp_models_alt_summ_df, 
+  "output/fits/summaries/contemporary_posteriors_altprior_summ.gz.parquet", 
+  compression = "gzip", 
+  version = "2.6",
+  compression_level = 9L
+)
+
 #------------------------------------------------------------------------------#
 #-----------------------------Model Diagnostics---------------------------------
 #------------------------------------------------------------------------------#
 
 # Set the bayesplot color scheme
-color_scheme_set(pokepal(245, spread = 6))
+color_scheme_set(pokepal(251, spread = 6))
 
 ### Create the paths to save the R-hat plots to----
 alt_contemp_rhat_files <- str_c(
@@ -41,10 +79,9 @@ alt_contemp_rhat_files <- str_c(
 
 ### Generate plots for the R-hat diagnostics for each parameter----
 alt_rhats_contemp <- map2(
-  .x = contemp_models_alt, 
+  .x = contemp_models_alt_summ, 
   .y = str_c("Contemporary Model M", 0:10), 
-  #  Extract the rhat values for each parameter
-  ~ rhat(.x) %>% 
+  ~ .x$rhat %>% 
     # Plot the distribution of the r-hat values
     mcmc_rhat_hist() +
     # Add a title to the plot
@@ -52,7 +89,8 @@ alt_rhats_contemp <- map2(
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
-      plot.margin = margin(5, 5, 5, 5, "mm")
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6))
@@ -87,22 +125,22 @@ alt_contemp_neff_files <- str_c(
 
 ### Generate plots for the N/EFF diagnostics for each parameter----
 alt_neff_contemp <- map2(
-  .x = contemp_models_alt, 
+  .x = contemp_models_alt_summ, 
   .y = str_c("Contemporary Model M", 0:10),
   # Extract the effective sample size ratios for each parameter
-  ~ neff_ratio(.x) %>% 
-    # Plot the neff values for each parameter
-    mcmc_neff_hist(binwidth = 0.05) +
+  ~ mcmc_neff_hist(.x$ess_bulk/3e3, binwidth = 0.01) +
     # Add a title to the plot
     labs(title = str_c("Effective Sample Size Ratios for ", .y)) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
-      plot.margin = margin(5, 5, 5, 5, "mm")
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6))
 )
+
 
 # Print the N/EFF plots
 # map(alt_neff_contemp, ~ print(.x))
@@ -147,7 +185,8 @@ alt_nuts_contemp <- map2(
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 14
+      strip_size = 14,
+      strip_face = "bold"
     )
 )
 
@@ -171,12 +210,6 @@ map2(
   )
 )
 
-### Create the paths to save the trace plots to----
-alt_contemp_trace_files <- str_c(
-  "Trace_SGC_HLogit_Full_M",
-  0:10,
-  "_Contemporary_AltPrior.jpeg"
-)
 
 ### Set model parameter names for the facets----
 math_labels_contemp <- as_labeller(
@@ -201,18 +234,89 @@ math_labels_contemp <- as_labeller(
     "b_female_wi:gdp_pcap_be" = "bold('Sex ' %*% ' GDP Per Capita, '*upsilon[3])",
     'sd_survey_tt__Intercept' = "bold('Survey Intercept SD, '*sigma[alpha[t]])",
     'sd_survey_tt__female_wi' = "bold('Survey Respondent Sex Slope SD, '*sigma[beta[t1]])",
-    "cor_survey_tt__Intercept__female_wi" = "bold('Survey Intercept-Respondent Sex Slope Correlations, '*rho[alpha[t]*beta[1*t]])",
+    "cor_survey_tt__Intercept__female_wi" = "bold('Survey Intercept-Sex Slope Correlations, '*rho[alpha[t]*beta[1*t]])",
     'sd_country_jj__Intercept' = "bold('Country Intercept SD, '*sigma[alpha[j]])",
     'sd_country_jj__female_wi' = "bold('Country Respondent Sex Slope SD, '*sigma[beta[j]])",
-    "cor_country_jj__Intercept__female_wi" = "bold('Country Intercept-Respondent Sex Slope Correlations, '*rho[alpha[j]*beta[1*j]])",
+    "cor_country_jj__Intercept__female_wi" = "bold('Country Intercept-Sex Slope Correlations, '*rho[alpha[j]*beta[1*j]])",
     "sd_cohort_5y_kk__Intercept" = "bold('Cohort Intercept SD, '*sigma[alpha[l]])"
   ), 
   default = label_parsed
 )
 
+### Create the paths to save the trace plots to----
+contemp_alt_trace_highlight_files <- str_c(
+  "Trace_Highlight_SGC_HLogit_Full_M",
+  0:10,
+  "_Contemporary_AltPrior.jpeg"
+)
+
+### Generate trace plots for the key parameters in each model----
+trace_highlight_contemp_alt <- map2(
+  .x = contemp_models_alt_thinned, 
+  .y = str_c("Contemporary Model M", 0:10),
+  # Create trace plots faceted by parameter for each model
+  ~ mcmc_trace_highlight(
+    .x, 
+    regex_pars =  "^b_|^sd_|^cor_",
+    facet_args = list(scales = "free_y", labeller = math_labels_contemp),
+    highlight = 3
+  ) +
+    # Add labels to the plot
+    labs(
+      y = "", 
+      x = "Iteration",
+      title = str_c("MCMC Trace Plots for ", .y),
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
+    ) +
+    # Apply custom plot theme settings
+    plot_theme(
+      title_size = 24,
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      strip_size = 14,
+      base_size = 18
+    ) +
+    # Adjust the breaks on the x axis
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Adjust the breaks on the x axis
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Setting the parameters for the plot legend
+    guides(color = guide_legend(
+      title = "Chain",
+      override.aes = list(
+        size = 4,
+        alpha = 1
+      )
+    ))
+)
+
+# Save the generated plot objects as a .jpeg file
+map2(
+  .x = contemp_alt_trace_highlight_files,
+  .y = trace_highlight_contemp_alt,
+  ~ ggsave(
+    filename = .x,
+    plot = .y,
+    device = "jpeg",
+    path = str_c(diags_dir, "contemporary/traceplots/"),
+    width = 27,
+    height = 12,
+    units = "in",
+    dpi = "retina",
+    limitsize = F
+  )
+)
+
+
+### Create the paths to save the trace plots to----
+alt_contemp_trace_files <- str_c(
+  "Trace_SGC_HLogit_Full_M",
+  0:10,
+  "_Contemporary_AltPrior.jpeg"
+)
+
 ### Generate trace plots for the key parameters in each model----
 alt_trace_contemp <- map2(
-  .x = contemp_models_alt, 
+  .x = contemp_models_alt_thinned, 
   .y = str_c("Contemporary Model M", 0:10),
   # Create trace plots faceted by parameter for each model
   ~ mcmc_trace(
@@ -225,14 +329,19 @@ alt_trace_contemp <- map2(
       y = "", 
       x = "Iteration",
       title = str_c("MCMC Trace Plots for ", .y),
-      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage"
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
     ) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 12
+      strip_size = 14,
+      base_size = 18
     ) +
+    # Adjust the breaks on the x axis
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Adjust the breaks on the x axis
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
     # Setting the parameters for the plot legend
     guides(color = guide_legend(
       title = "Chain",
@@ -272,7 +381,7 @@ alt_contemp_rank_files <- str_c(
 
 ### Rank plots for the key model parameters----
 alt_rank_contemp <- map2(
-  .x = contemp_models_alt, 
+  .x = contemp_models_alt_thinned, 
   .y = str_c("Contemporary Model M", 0:10), 
   # Create rank plots faceted by parameter for each model
   ~ mcmc_rank_overlay(
@@ -283,15 +392,16 @@ alt_rank_contemp <- map2(
     # Add labels to the plot
     labs(
       y = "", 
-      x = "Rank", 
-      title = str_c("MCMC Rank Plots for ", .y),
-      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage"
+      x = "Iteration",
+      title = str_c("MCMC Trace Plots for ", .y),
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
     ) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 12
+      strip_size = 14,
+      base_size = 18
     ) +
     # Setting the parameters for the plot legend
     guides(color = guide_legend(
@@ -344,7 +454,8 @@ alt_diag_plots_contemp <- map(
     plot_theme(
       title_size = 24,
       strip_size = 14,
-      plot.margin =  margin(5, 5, 5, 5, "mm")
+      plot.margin =  margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     )
 )
 
@@ -356,7 +467,7 @@ map2(
     filename = .x,
     plot = .y,
     device = "jpeg",
-    path = str_c(diags_dir, "contemporary/"),
+    path = str_c(diags_dir, "contemporary/diag-panels/"),
     width = 32,
     height = 20,
     units = "in",
@@ -364,4 +475,12 @@ map2(
     type = "cairo",
     limitsize = F
   )
+)
+
+# Write the plot objects to a file
+write_rds(
+  alt_diag_plots_contemp,
+  file = str_c(diags_dir, "contemporary/diag-panels/contemp_diagplots_alt.rds"),
+  compress = "gz",
+  compression = 9L
 )

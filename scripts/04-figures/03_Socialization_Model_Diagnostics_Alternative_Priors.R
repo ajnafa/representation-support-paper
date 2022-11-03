@@ -5,15 +5,18 @@
 ## Load the necessary libraries
 pacman::p_load(
   "tidyverse",
-  "arrow",
   "brms",
-  "bayestestR",
+  "arrow",
   "tidybayes",
   "bayesplot",
   "patchwork",
   "palettetown",
   install = FALSE
 )
+
+#------------------------------------------------------------------------------#
+#--------------------------Load Socialization Models----------------------------
+#------------------------------------------------------------------------------#
 
 # Load the socialization models w/alternative priors
 soc_models_altprior <- map(
@@ -23,6 +26,41 @@ soc_models_altprior <- map(
     full.names = TRUE
   ),
   ~ read_rds(.x)
+)
+
+## Apply names to the list of models
+names(soc_models_altprior) <- str_c("MS", 0:7)
+
+# Load the socialization models for the main analysis
+soc_models_altprior_thinned <- map(
+  .x = soc_models_altprior,
+  ~ thin_samples(.x, 
+                 thin = 10,
+                 variable = "^b_|^sd_|^cor_|r_(c|s)", 
+                 regex = TRUE)
+)
+
+# Calculate full MCMC diagnostics
+soc_models_altprior_summ <- map(
+  .x = soc_models_altprior_thinned,
+  ~ mcmc_diagnostics_summary(.x, .cores = 8)
+)
+
+# Append everything into a single data frame
+soc_models_altprior_summ_df <- bind_rows(
+  soc_models_altprior_summ, 
+  .id = ".model"
+) %>% 
+  # Sort on the string vectors
+  arrange(variable, .model)
+
+# Write the full thinned posteriors to a parquet file
+write_parquet(
+  soc_models_altprior_summ_df, 
+  "output/fits/summaries/socialization_posteriors_altprior_summ.gz.parquet", 
+  compression = "gzip", 
+  version = "2.6",
+  compression_level = 9L
 )
 
 #------------------------------------------------------------------------------#
@@ -41,10 +79,9 @@ altprior_soc_rhat_files <- str_c(
 
 ### Generate plots for the R-hat diagnostics for each parameter----
 altprior_rhats_socialization <- map2(
-  .x = soc_models_altprior, 
+  .x = soc_models_altprior_summ, 
   .y = str_c("Socialization Model M", 0:7), 
-  #  Extract the rhat values for each parameter
-  ~ rhat(.x) %>% 
+  ~ .x$rhat %>% 
     # Plot the distribution of the r-hat values
     mcmc_rhat_hist() +
     # Add a title to the plot
@@ -52,7 +89,8 @@ altprior_rhats_socialization <- map2(
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
-      plot.margin = margin(5, 5, 5, 5, "mm")
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6))
@@ -87,18 +125,17 @@ altprior_soc_neff_files <- str_c(
 
 ### Generate plots for the N/EFF diagnostics for each parameter----
 altprior_neff_socialization <- map2(
-  .x = soc_models_altprior, 
+  .x = soc_models_altprior_summ, 
   .y = str_c("Socialization Model M", 0:7),
   # Extract the effective sample size ratios for each parameter
-  ~ neff_ratio(.x) %>% 
-    # Plot the neff values for each parameter
-    mcmc_neff_hist(binwidth = 0.05) +
+  ~ mcmc_neff_hist(.x$ess_bulk/3e3, binwidth = 0.01) +
     # Add a title to the plot
     labs(title = str_c("Effective Sample Size Ratios for ", .y)) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
-      plot.margin = margin(5, 5, 5, 5, "mm")
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6))
@@ -147,7 +184,9 @@ altprior_nuts_socialization <- map2(
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 14
+      strip_size = 18,
+      strip_face = "bold",
+      base_size = 18
     )
 )
 
@@ -171,9 +210,10 @@ map2(
   )
 )
 
+
 ### Create the paths to save the trace plots to----
-altprior_soc_trace_files <- str_c(
-  "Trace_SGC_HLogit_Full_M",
+altprior_soc_trace_highlight_files <- str_c(
+  "Trace_Highlight_SGC_HLogit_Full_M",
   0:7,
   "_Socialization_AltPriors.jpeg"
 )
@@ -197,18 +237,83 @@ math_labels_socialization <- as_labeller(
     "b_female_wi:soc_libdem_be" = "bold('Sex ' %*% ' Liberal Democracy (16-21), '*upsilon[2])",
     'sd_survey_tt__Intercept' = "bold('Survey Intercept SD, '*sigma[alpha[t]])",
     'sd_survey_tt__female_wi' = "bold('Survey Respondent Sex Slope SD, '*sigma[beta[t1]])",
-    "cor_survey_tt__Intercept__female_wi" = "bold('Survey Intercept-Respondent Sex Slope Correlations, '*rho[alpha[t]*beta[1*t]])",
+    "cor_survey_tt__Intercept__female_wi" = "bold('Survey Intercept-Sex Slope Correlations, '*rho[alpha[t]*beta[1*t]])",
     'sd_country_jj__Intercept' = "bold('Country Intercept SD, '*sigma[alpha[j]])",
     'sd_country_jj__female_wi' = "bold('Country Respondent Sex Slope SD, '*sigma[beta[j]])",
-    "cor_country_jj__Intercept__female_wi" = "bold('Country Intercept-Respondent Sex Slope Correlations, '*rho[alpha[j]*beta[1*j]])",
+    "cor_country_jj__Intercept__female_wi" = "bold('Country Intercept-Sex Slope Correlations, '*rho[alpha[j]*beta[1*j]])",
     "sd_cohort_5y_kk__Intercept" = "bold('Cohort Intercept SD, '*sigma[alpha[l]])"
   ), 
   default = label_parsed
 )
 
+
+### Generate trace plots for the key parameters in each model----
+alt_trace_highlight_socialization <- map2(
+  .x = soc_models_altprior_thinned, 
+  .y = str_c("Socialization Model M", 0:7),
+  # Create trace plots faceted by parameter for each model
+  ~ mcmc_trace_highlight(
+    .x, 
+    regex_pars =  "^b_|^sd_|^cor_",
+    facet_args = list(scales = "free_y", labeller = math_labels_socialization),
+    highlight = 3
+  ) +
+    # Add labels to the plot
+    labs(
+      y = "", 
+      x = "Iteration",
+      title = str_c("MCMC Trace Plots for ", .y),
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
+    ) +
+    # Apply custom plot theme settings
+    plot_theme(
+      title_size = 24,
+      plot.margin = margin(5, 5, 5, 5, "mm"),
+      strip_size = 14,
+      base_size = 18
+    ) +
+    # Adjust the breaks on the x axis
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Adjust the breaks on the x axis
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Setting the parameters for the plot legend
+    guides(color = guide_legend(
+      title = "Chain",
+      override.aes = list(
+        size = 4,
+        alpha = 1
+      )
+    ))
+)
+
+# Save the generated plot objects as a .jpeg file
+map2(
+  .x = altprior_soc_trace_highlight_files,
+  .y = alt_trace_highlight_socialization,
+  ~ ggsave(
+    filename = .x,
+    plot = .y,
+    device = "jpeg",
+    path = str_c(diags_dir, "socializaton/traceplots/"),
+    width = 27,
+    height = 12,
+    units = "in",
+    dpi = "retina",
+    limitsize = F
+  )
+)
+
+
+### Create the paths to save the trace plots to----
+altprior_soc_trace_files <- str_c(
+  "Trace_SGC_HLogit_Full_M",
+  0:7,
+  "_Socialization_AltPriors.jpeg"
+)
+
 ### Generate trace plots for the key parameters in each model----
 altprior_trace_socialization <- map2(
-  .x = soc_models_altprior, 
+  .x = soc_models_altprior_thinned, 
   .y = str_c("Socialization Model M", 0:7),
   # Create trace plots faceted by parameter for each model
   ~ mcmc_trace(
@@ -221,14 +326,19 @@ altprior_trace_socialization <- map2(
       y = "", 
       x = "Iteration",
       title = str_c("MCMC Trace Plots for ", .y),
-      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage"
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
     ) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 12
+      strip_size = 14,
+      base_size = 18
     ) +
+    # Adjust the breaks on the x axis
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+    # Adjust the breaks on the x axis
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
     # Setting the parameters for the plot legend
     guides(color = guide_legend(
       title = "Chain",
@@ -268,7 +378,7 @@ altprior_soc_rank_files <- str_c(
 
 ### Rank plots for the key model parameters----
 altprior_rank_socialization <- map2(
-  .x = soc_models_altprior, 
+  .x = soc_models_altprior_thinned, 
   .y = str_c("Socialization Model M", 0:7), 
   # Create rank plots faceted by parameter for each model
   ~ mcmc_rank_overlay(
@@ -281,13 +391,14 @@ altprior_rank_socialization <- map2(
       y = "", 
       x = "Rank", 
       title = str_c("MCMC Rank Plots for ", .y),
-      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage"
+      caption = "Each chain was run for 8,000 iterations with the first 3,000 discarded after the intitial warmup adaptation stage and thinned by a factor of 10 post-estimation."
     ) +
     # Apply custom plot theme settings
     plot_theme(
       title_size = 24,
       plot.margin = margin(5, 5, 5, 5, "mm"),
-      strip_size = 12
+      strip_size = 14,
+      base_size = 18
     ) +
     # Setting the parameters for the plot legend
     guides(color = guide_legend(
@@ -340,7 +451,8 @@ altprior_diag_plots_socialization <- map(
     plot_theme(
       title_size = 24,
       strip_size = 14,
-      plot.margin =  margin(5, 5, 5, 5, "mm")
+      plot.margin =  margin(5, 5, 5, 5, "mm"),
+      base_size = 18
     )
 )
 
@@ -352,7 +464,7 @@ map2(
     filename = .x,
     plot = .y,
     device = "jpeg",
-    path = str_c(diags_dir, "socializaton/"),
+    path = str_c(diags_dir, "socializaton/diag-panels/"),
     width = 32,
     height = 20,
     units = "in",
@@ -360,4 +472,12 @@ map2(
     type = "cairo",
     limitsize = F
   )
+)
+
+# Write the plot objects to a file
+write_rds(
+  altprior_diag_plots_socialization,
+  file = str_c(diags_dir, "socializaton/diag-panels/soc_diagplots_altprior.rds"),
+  compress = "gz",
+  compression = 9L
 )
