@@ -138,9 +138,10 @@ descriptive_stats_tex <- descriptive_stats %>%
   # Generate a kable
   kbl(
     row.names = T,
+    format = "latex",
     col.names = c("Mean", "Median", "SD", "Min", "Max", "N"),
     align = "lccccc",
-    caption = "Table A1. Descriptive Statistics for the Main Analysis",
+    caption = "Descriptive Statistics for the Main Analysis",
     booktabs = T,
     linesep = ""
   ) %>%
@@ -162,5 +163,7 @@ descriptive_stats_tex <- descriptive_stats %>%
     ),
     label_row_css = "padding-left: 1em;",
     indent = FALSE
-  )
+  ) %>% 
+  #
+  row_spec(20, hline_after = TRUE)
 

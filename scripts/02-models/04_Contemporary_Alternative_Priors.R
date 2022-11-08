@@ -216,14 +216,14 @@ alt_sgc_cond_contemp_linvar_fits <- map(
 
 # Add Marginal and Conditional Bayes R2 to each Model
 alt_sgc_cond_contemp_linvar_fits <- map(
-  .x = alt_sgc_cond_contemp_linvar_fits,
+  .x = contemp_models_alt,
   .f = ~ Bayesian_R2(
     .x,
     conditional = TRUE,
     marginal = TRUE,
     save = TRUE,
     seed = 12345,
-    ndraws = 4000
+    ndraws = 3000
   )
 )
 

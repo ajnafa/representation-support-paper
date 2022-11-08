@@ -1,6 +1,6 @@
 #--------Model Diagnostics: Societal Growth Curve Models (Contemporary)---------
 #-Author: A. Jordan Nafa--------------------------------Created: March 1, 2022-#
-#-R Version: 4.2.1------------------------------------Revised: October 6, 2022-#
+#-R Version: 4.2.1-----------------------------------Revised: November 7, 2022-#
 
 ## Load the necessary libraries
 pacman::p_load(
@@ -63,12 +63,12 @@ write_parquet(
   compression_level = 9L
 )
 
-#------------------------------------------------------------------------------#
-#-----------------------------Model Diagnostics---------------------------------
-#------------------------------------------------------------------------------#
-
 # Set the bayesplot color scheme
 color_scheme_set(pokepal(251, spread = 6))
+
+#------------------------------------------------------------------------------#
+#------------------------R-hat Convergence Diagnostics--------------------------
+#------------------------------------------------------------------------------#
 
 ### Create the paths to save the R-hat plots to----
 alt_contemp_rhat_files <- str_c(
@@ -88,7 +88,7 @@ alt_rhats_contemp <- map2(
     labs(title = parse(text = paste("bold('Gelman-Rubin '*hat(R)*' Diagnostic for", .y, "')"))) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       base_size = 18
     ) +
@@ -116,6 +116,10 @@ map2(
   )
 )
 
+#------------------------------------------------------------------------------#
+#----------------------Effective Sample Size Diagnostics------------------------
+#------------------------------------------------------------------------------#
+
 ### Create the paths to save the plots to Effective Sample Size----
 alt_contemp_neff_files <- str_c(
   "NEFF_SGC_HLogit_Full_M",
@@ -133,14 +137,13 @@ alt_neff_contemp <- map2(
     labs(title = str_c("Effective Sample Size Ratios for ", .y)) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       base_size = 18
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6))
 )
-
 
 # Print the N/EFF plots
 # map(alt_neff_contemp, ~ print(.x))
@@ -161,6 +164,10 @@ map2(
     limitsize = F
   )
 )
+
+#------------------------------------------------------------------------------#
+#---------------------------NUTS Energy Diagnostics-----------------------------
+#------------------------------------------------------------------------------#
 
 ### Create the paths to save the NUTS Diagnostics plots to----
 alt_contemp_nuts_files <- str_c(
@@ -183,9 +190,10 @@ alt_nuts_contemp <- map2(
     labs(title = str_c("No U-Turn Sampler Energy Diagnostic for ", .y)) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       strip_size = 14,
+      base_size = 18,
       strip_face = "bold"
     )
 )
@@ -210,6 +218,9 @@ map2(
   )
 )
 
+#------------------------------------------------------------------------------#
+#----------------------MCMC Trace Plots for Main Parameters---------------------
+#------------------------------------------------------------------------------#
 
 ### Set model parameter names for the facets----
 math_labels_contemp <- as_labeller(
@@ -270,10 +281,17 @@ trace_highlight_contemp_alt <- map2(
     ) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       strip_size = 14,
-      base_size = 18
+      base_size = 18,
+      xaxis_size = 25,
+      caption_size = 14,
+      axis_text_size = 18,
+      plot.caption.position = "plot",
+      plot.title.position = "plot",
+      caption.hjust = 0, 
+      caption.vjust = -1
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
@@ -283,7 +301,7 @@ trace_highlight_contemp_alt <- map2(
     guides(color = guide_legend(
       title = "Chain",
       override.aes = list(
-        size = 4,
+        size = 5,
         alpha = 1
       )
     ))
@@ -297,7 +315,7 @@ map2(
     filename = .x,
     plot = .y,
     device = "jpeg",
-    path = str_c(diags_dir, "contemporary/traceplots/"),
+    path = str_c(diags_dir, "contemporary/traceplots/highlight/"),
     width = 27,
     height = 12,
     units = "in",
@@ -305,7 +323,6 @@ map2(
     limitsize = F
   )
 )
-
 
 ### Create the paths to save the trace plots to----
 alt_contemp_trace_files <- str_c(
@@ -333,10 +350,17 @@ alt_trace_contemp <- map2(
     ) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       strip_size = 14,
-      base_size = 18
+      base_size = 18,
+      xaxis_size = 25,
+      caption_size = 14,
+      axis_text_size = 18,
+      plot.caption.position = "plot",
+      plot.title.position = "plot",
+      caption.hjust = 0, 
+      caption.vjust = -1
     ) +
     # Adjust the breaks on the x axis
     scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
@@ -363,7 +387,7 @@ map2(
     filename = .x,
     plot = .y,
     device = "jpeg",
-    path = str_c(diags_dir, "contemporary/traceplots/"),
+    path = str_c(diags_dir, "contemporary/traceplots/trace/"),
     width = 27,
     height = 12,
     units = "in",
@@ -371,6 +395,10 @@ map2(
     limitsize = F
   )
 )
+
+#------------------------------------------------------------------------------#
+#-----------------------MCMC Rank Plots for Main Parameters---------------------
+#------------------------------------------------------------------------------#
 
 ### Create the paths to save the rank overlay plots to----
 alt_contemp_rank_files <- str_c(
@@ -398,10 +426,17 @@ alt_rank_contemp <- map2(
     ) +
     # Apply custom plot theme settings
     plot_theme(
-      title_size = 24,
+      title_size = 25,
       plot.margin = margin(5, 5, 5, 5, "mm"),
       strip_size = 14,
-      base_size = 18
+      base_size = 18,
+      xaxis_size = 25,
+      caption_size = 14,
+      axis_text_size = 18,
+      plot.caption.position = "plot",
+      plot.title.position = "plot",
+      caption.hjust = 0, 
+      caption.vjust = -1
     ) +
     # Setting the parameters for the plot legend
     guides(color = guide_legend(
@@ -433,6 +468,10 @@ map2(
   )
 )
 
+#------------------------------------------------------------------------------#
+#-----------------------Diagnostic Panels for the Appendix----------------------
+#------------------------------------------------------------------------------#
+
 ### Create the paths to save the combined diagnostic plots to----
 alt_contemp_diagplot_files <- str_c(
   "Diagnostics_SGC_HLogit_Full_M",
@@ -452,10 +491,20 @@ alt_diag_plots_contemp <- map(
       ggtitle("No U-Turn Sampler Energy Diagnostic")) / alt_trace_contemp[[.x]] + 
     ggtitle("MCMC Trace Plots") + plot_layout(widths = c(1, 1), heights = c(1, 2)) & 
     plot_theme(
-      title_size = 24,
-      strip_size = 14,
+      title_size = 28,
+      strip_size = 18,
       plot.margin =  margin(5, 5, 5, 5, "mm"),
-      base_size = 18
+      base_size = 18,
+      xaxis_size = 28,
+      axis_text_size = 16,
+      x_axis_face = "bold",
+      y_axis_face = "bold",
+      caption_size = 18,
+      plot.caption.position = "plot",
+      plot.title.position = "plot",
+      caption.hjust = 0, 
+      caption.vjust = -1,
+      legend_text_size = 20
     )
 )
 
@@ -469,10 +518,9 @@ map2(
     device = "jpeg",
     path = str_c(diags_dir, "contemporary/diag-panels/"),
     width = 32,
-    height = 20,
+    height = 24,
     units = "in",
-    dpi = "retina",
-    type = "cairo",
+    dpi = 100,
     limitsize = F
   )
 )
