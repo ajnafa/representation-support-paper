@@ -171,3 +171,5 @@ glance.brmsfit <- function(x,
   
   return(marglik)
 }
+
+
