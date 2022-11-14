@@ -48,10 +48,10 @@ stacking_weights <- function(x,
                              seed = NULL,
                              ...) {
 
-  ## Validate the model list and weights arguments
+  # Validate the model list and weights arguments
   weights <- .check_weights(x, weights)
 
-  ## Find or create model names
+  # Find or create model names
   if (length(model_names) == length(x)) {
     model_names <- model_names
   }
@@ -59,20 +59,20 @@ stacking_weights <- function(x,
     model_names <- paste("M", seq_along(x), sep = "")
   }
 
-  ## Extract the weights
+  # Extract the weights
   loo_ic_est <- purrr::map2_dbl(
     .x = seq_along(x),
     .y = weights,
     ~ x[[.x]]$criteria[[.y]]$estimates[3, 1]
   )
 
-  ## Calculate the relative difference in performance criteria
+  # Calculate the relative difference in performance criteria
   ic_diffs <- loo_ic_est - min(loo_ic_est)
 
-  ## Relative model performance criteria
+  # Relative model performance criteria
   out <- exp(-ic_diffs/2)
 
-  ## Optional Bayesian Bootstrap, which I'm pretty sure makes sense in this context
+  # Optional Bayesian Bootstrap, which I'm pretty sure makes sense in this context
   if(isTRUE(bb_draws)) {
     set.seed(seed)
     ru <- bayesboot::rudirichlet(n, length(out))
@@ -80,33 +80,33 @@ stacking_weights <- function(x,
     out <- colMeans(draws * ru)
   }
 
-  ## Scale the weights to sum to 1
+  # Scale the weights to sum to 1
   out <- out/sum(out)
 
-  ## Apply model names
+  # Apply model names
   names(out) <- model_names
 
-  ## Return the weights
+  # Return the weights
   return(out)
 }
 
 # Helper Function to check whether model criterion is already stored
 .check_weights <- function (x, weights) {
 
-  ## Check the class of the model objects
+  # Check the class of the model objects
   for (i in seq_along(x)) {
     stopifnot(class(x[[i]]) == "brmsfit")
   }
 
-  ## Position of the stored criteria
+  # Position of the stored criteria
   criteria <- lapply(x, function(model) match(weights, names(model$criteria)))
 
-  ## Check that all model objects contain the criteria
+  # Check that all model objects contain the criteria
   stopifnot(isFALSE(anyNA(criteria)))
 
   ## Coerce the positions to an integer
   criteria_pos <- as.numeric(criteria)
 
-  ## Return the vector of criteria positions
+  # Return the vector of criteria positions
   return(criteria_pos)
 }
